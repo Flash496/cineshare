@@ -6,6 +6,7 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './jwt.strategy';
 import { GoogleStrategy } from './strategies/google.strategy';
+import { RefreshTokenStrategy } from './strategies/refresh-token.strategy';
 
 @Module({
   imports: [
@@ -24,6 +25,8 @@ import { GoogleStrategy } from './strategies/google.strategy';
     AuthService,
     JwtStrategy,
     GoogleStrategy,
+    RefreshTokenStrategy,
+
   ],
   exports: [AuthService],
 })

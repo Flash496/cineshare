@@ -17,6 +17,8 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { GetUser } from './decorators/get-user.decorator';
 import { Public } from './decorators/public.decorator';
 import { GoogleAuthGuard } from './guards/google-auth.guard';
+import { RefreshTokenGuard } from './guards/refresh-token.guard';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -36,22 +38,24 @@ export class AuthController {
 
   @Public()
   @Post('refresh')
+  @UseGuards(RefreshTokenGuard)
   async refresh(
-    @Body() body: { userId: string; refreshToken: string }
+    @GetUser('userId') userId: string,
+    @Body(ValidationPipe) dto: RefreshTokenDto,
   ) {
-    return this.authService.refreshTokens(body.userId, body.refreshToken);
+    return this.authService.refreshTokens(userId, dto.refreshToken);
   }
 
-  @UseGuards(JwtAuthGuard)
   @Post('logout')
-  async logout(@Request() req) {
-    return this.authService.logout(req.user.userId);
+  @UseGuards(JwtAuthGuard)
+  async logout(@GetUser('userId') userId: string) {
+    return this.authService.logout(userId);
   }
 
-  @UseGuards(JwtAuthGuard)
   @Get('me')
-  async getProfile(@Request() req) {
-    return this.authService.validateUser(req.user.userId);
+  @UseGuards(JwtAuthGuard)
+  async getProfile(@GetUser('userId') userId: string) {
+    return this.authService.validateUser(userId);
   }
 
   @Public()
