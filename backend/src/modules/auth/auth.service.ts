@@ -1,9 +1,14 @@
-import { Injectable, ConflictException, UnauthorizedException, BadRequestException } from '@nestjs/common';
+// src/modules/auth/auth.service.ts
+import { 
+  Injectable, 
+  ConflictException, 
+  UnauthorizedException, 
+  BadRequestException 
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PasswordService } from '../../common/services/password.service';
-import { RegisterDto } from './dto/register.dto';
-import { LoginDto } from './dto/login.dto';
+import type { RegisterDto, LoginDto } from './schemas/auth.schema';
 
 @Injectable()
 export class AuthService {
@@ -14,7 +19,7 @@ export class AuthService {
   ) {}
 
   async register(dto: RegisterDto) {
-    // Validate password strength
+    // Validate password strength (defense-in-depth)
     const passwordValidation = this.passwordService.validatePasswordStrength(dto.password);
     if (!passwordValidation.valid) {
       throw new BadRequestException({
@@ -31,7 +36,12 @@ export class AuthService {
     });
 
     if (existingUser) {
-      throw new ConflictException('User already exists');
+      if (existingUser.email === dto.email) {
+        throw new ConflictException('Email already in use');
+      }
+      if (existingUser.username === dto.username) {
+        throw new ConflictException('Username already taken');
+      }
     }
 
     // Hash password using PasswordService
@@ -44,10 +54,14 @@ export class AuthService {
         username: dto.username,
         password: hashedPassword,
         displayName: dto.displayName || dto.username,
+        provider: 'email',
       },
     });
 
-    return { message: 'User registered successfully', userId: user.id };
+    return { 
+      message: 'User registered successfully', 
+      userId: user.id 
+    };
   }
 
   async login(dto: LoginDto) {
@@ -62,40 +76,28 @@ export class AuthService {
     }
 
     // Verify password using PasswordService
-    const isPasswordValid = await this.passwordService.compare(dto.password, user.password);
+    const isPasswordValid = await this.passwordService.compare(
+      dto.password, 
+      user.password
+    );
 
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
     // Generate JWT tokens
-    const payload = {
-      sub: user.id,
-      email: user.email,
-      username: user.username,
-    };
-
-    const accessToken = await this.jwtService.signAsync(payload, {
-      secret: process.env.JWT_SECRET,
-      expiresIn: '15m',
-    });
-
-    const refreshToken = await this.jwtService.signAsync(payload, {
-      secret: process.env.JWT_REFRESH_SECRET,
-      expiresIn: '7d',
-    });
+    const tokens = await this.generateTokens(user);
 
     // Store hashed refresh token in database
     await this.prisma.user.update({
       where: { id: user.id },
       data: {
-        refreshToken: await this.passwordService.hash(refreshToken),
+        refreshToken: await this.passwordService.hash(tokens.refreshToken),
       },
     });
 
     return {
-      accessToken,
-      refreshToken,
+      ...tokens,
       user: {
         id: user.id,
         email: user.email,
@@ -126,34 +128,17 @@ export class AuthService {
     }
 
     // Generate new tokens
-    const payload = {
-      sub: user.id,
-      email: user.email,
-      username: user.username,
-    };
-
-    const accessToken = await this.jwtService.signAsync(payload, {
-      secret: process.env.JWT_SECRET,
-      expiresIn: '15m',
-    });
-
-    const newRefreshToken = await this.jwtService.signAsync(payload, {
-      secret: process.env.JWT_REFRESH_SECRET,
-      expiresIn: '7d',
-    });
+    const tokens = await this.generateTokens(user);
 
     // Update refresh token in database
     await this.prisma.user.update({
       where: { id: user.id },
       data: {
-        refreshToken: await this.passwordService.hash(newRefreshToken),
+        refreshToken: await this.passwordService.hash(tokens.refreshToken),
       },
     });
 
-    return {
-      accessToken,
-      refreshToken: newRefreshToken,
-    };
+    return tokens;
   }
 
   async logout(userId: string) {
@@ -193,7 +178,11 @@ export class AuthService {
 
     if (!user) {
       // Create new user from Google profile
-      const username = googleUser.email.split('@')[0] + '_' + Math.random().toString(36).substring(2, 9);
+      const username = 
+        googleUser.email.split('@')[0] + 
+        '_' + 
+        Math.random().toString(36).substring(2, 9);
+        
       user = await this.prisma.user.create({
         data: {
           email: googleUser.email,
@@ -217,6 +206,30 @@ export class AuthService {
     }
 
     // Generate tokens
+    const tokens = await this.generateTokens(user);
+
+    // Store hashed refresh token in database
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        refreshToken: await this.passwordService.hash(tokens.refreshToken),
+      },
+    });
+
+    return {
+      ...tokens,
+      user: {
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        displayName: user.displayName,
+        avatar: user.avatar,
+      },
+    };
+  }
+
+  // Private helper method to generate tokens (DRY principle)
+  private async generateTokens(user: any) {
     const payload = {
       sub: user.id,
       email: user.email,
@@ -233,24 +246,10 @@ export class AuthService {
       expiresIn: '7d',
     });
 
-    // Store hashed refresh token in database
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: {
-        refreshToken: await this.passwordService.hash(refreshToken),
-      },
-    });
-
     return {
       accessToken,
       refreshToken,
-      user: {
-        id: user.id,
-        email: user.email,
-        username: user.username,
-        displayName: user.displayName,
-        avatar: user.avatar,
-      },
     };
   }
 }
+

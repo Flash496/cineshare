@@ -1,24 +1,26 @@
+// src/modules/auth/auth.controller.ts
 import { 
   Controller, 
   Post, 
   Body, 
-  ValidationPipe, 
   UseGuards, 
   Get, 
   Request,
   Req,
-  Res
+  Res,
+  UsePipes
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { AuthService } from './auth.service';
-import { RegisterDto } from './dto/register.dto';
-import { LoginDto } from './dto/login.dto';
+import { ZodValidationPipe } from './dto/zod-validation.pipe';
+import { registerSchema, loginSchema } from './schemas/auth.schema';
+import type { RegisterDto, LoginDto } from './schemas/auth.schema'; // ✅ Use 'import type'
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { GetUser } from './decorators/get-user.decorator';
 import { Public } from './decorators/public.decorator';
 import { GoogleAuthGuard } from './guards/google-auth.guard';
 import { RefreshTokenGuard } from './guards/refresh-token.guard';
-import { RefreshTokenDto } from './dto/refresh-token.dto';
+import type { RefreshTokenDto } from './dto/refresh-token.dto'; // ✅ Use 'import type'
 
 @Controller('auth')
 export class AuthController {
@@ -26,13 +28,15 @@ export class AuthController {
 
   @Public()
   @Post('register')
-  async register(@Body(ValidationPipe) registerDto: RegisterDto) {
+  @UsePipes(new ZodValidationPipe(registerSchema))
+  async register(@Body() registerDto: RegisterDto) {
     return this.authService.register(registerDto);
   }
 
   @Public()
   @Post('login')
-  async login(@Body(ValidationPipe) loginDto: LoginDto) {
+  @UsePipes(new ZodValidationPipe(loginSchema))
+  async login(@Body() loginDto: LoginDto) {
     return this.authService.login(loginDto);
   }
 
@@ -41,7 +45,7 @@ export class AuthController {
   @UseGuards(RefreshTokenGuard)
   async refresh(
     @GetUser('userId') userId: string,
-    @Body(ValidationPipe) dto: RefreshTokenDto,
+    @Body() dto: RefreshTokenDto,
   ) {
     return this.authService.refreshTokens(userId, dto.refreshToken);
   }
