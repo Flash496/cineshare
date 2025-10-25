@@ -8,29 +8,33 @@ datasource db {
 }
 
 model User {
-  id          String    @id @default(uuid())
-  email       String    @unique
-  username    String    @unique
-  password    String?
-  displayName String?
-  bio         String?
-  avatar      String?
-  provider    String    @default("email")
-  isVerified  Boolean   @default(false)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id           String    @id @default(uuid())
+  email        String    @unique
+  username     String    @unique
+  password     String?   // Null for OAuth users
+  displayName  String?
+  bio          String?
+  avatar       String?
+  provider     String    @default("email") // email, google, facebook
+  providerId   String?   // Google user ID
+  isVerified   Boolean   @default(false)
+  refreshToken String?   // Add this line
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  
 
-  reviews    Review[]
-  watchlists Watchlist[]
-  followers  Follow[]    @relation("Following")
-  following  Follow[]    @relation("Followers")
-  likes      Like[]
-  comments   Comment[]
+
+  // Relations
+  reviews     Review[]
+  watchlists  Watchlist[]
+  followers   Follow[]    @relation("Following")
+  following   Follow[]    @relation("Followers")
+  likes       Like[]
+  comments    Comment[]
 
   @@index([email])
   @@index([username])
 }
-
 model Review {
   id           String   @id @default(uuid())
   userId       String
