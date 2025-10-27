@@ -16,6 +16,9 @@ out/
 .env
 .env.local
 .env.*.local
+.env.test
+backend/.env.test
+frontend/.env.test
 
 # Misc
 .DS_Store
