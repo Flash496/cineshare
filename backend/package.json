@@ -17,7 +17,16 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "cross-env NODE_ENV=test jest --config ./test/jest-e2e.json --runInBand --detectOpenHandles --forceExit",
+    "test:e2e:watch": "cross-env NODE_ENV=test jest --config ./test/jest-e2e.json --watch --runInBand",
+    "test:e2e:debug": "cross-env NODE_ENV=test node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --config ./test/jest-e2e.json --runInBand",
+    "test:e2e:cov": "cross-env NODE_ENV=test jest --config ./test/jest-e2e.json --coverage --runInBand --forceExit",
+    "pretest:e2e": "echo 🧪 Starting E2E Tests...",
+    "posttest:e2e": "echo ✅ E2E Tests Complete!",
+    "db:test:setup": "scripts\\setup-test-db.bat",
+    "db:test:clean": "scripts\\cleanup-test-db.bat",
+    "db:test:migrate": "scripts\\migrate-test-db.bat",
+    "db:test:reset": "npm run db:test:clean && npm run db:test:migrate"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
@@ -42,6 +51,7 @@
     "cache-manager-redis-yet": "^5.1.5",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
+    "dotenv": "^16.4.7",
     "ioredis": "^5.8.2",
     "mongoose": "^8.19.2",
     "passport": "^0.7.0",
@@ -49,6 +59,7 @@
     "passport-jwt": "^4.0.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
+    "sanitize-html": "^2.17.0",
     "typeorm": "^0.3.27",
     "zod": "^4.1.12"
   },
@@ -64,7 +75,9 @@
     "@types/node": "^22.10.7",
     "@types/passport-google-oauth20": "^2.0.17",
     "@types/passport-jwt": "^4.0.1",
+    "@types/sanitize-html": "^2.16.0",
     "@types/supertest": "^6.0.3",
+    "cross-env": "^7.0.3",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-prettier": "^5.2.2",

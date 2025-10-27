@@ -14,6 +14,7 @@ import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { TmdbModule } from './modules/tmdb/tmdb.module';
 import { MoviesModule } from './modules/movies/movies.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
+import { UsersModule } from './modules/users/users.module';
 
 @Module({
   imports: [
@@ -32,7 +33,8 @@ import { ReviewsModule } from './modules/reviews/reviews.module';
     AuthModule,
     TmdbModule,
     MoviesModule,
-    ReviewsModule, // Added Movies Module
+    ReviewsModule,
+    UsersModule, 
   ],
   controllers: [AppController],
   providers: [

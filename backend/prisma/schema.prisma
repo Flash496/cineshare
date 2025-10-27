@@ -18,42 +18,60 @@ model User {
   provider     String    @default("email") // email, google, facebook
   providerId   String?   // Google user ID
   isVerified   Boolean   @default(false)
-  refreshToken String?   // Add this line
+  refreshToken String?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
-  
-
 
   // Relations
-  reviews     Review[]
-  watchlists  Watchlist[]
-  followers   Follow[]    @relation("Following")
-  following   Follow[]    @relation("Followers")
-  likes       Like[]
-  comments    Comment[]
+  reviews       Review[]
+  watchlists    Watchlist[]
+  followers     Follow[]        @relation("Following")
+  following     Follow[]        @relation("Followers")
+  likes         Like[]
+  comments      Comment[]
+  reviewReports ReviewReport[]
 
   @@index([email])
   @@index([username])
 }
-model Review {
-  id           String   @id @default(uuid())
-  userId       String
-  movieId      Int
-  rating       Float
-  title        String?
-  content      String   @db.Text
-  hasSpoilers  Boolean  @default(false)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
 
-  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+model Review {
+  id          String   @id @default(uuid())
+  userId      String
+  movieId     Int
+  rating      Float
+  title       String?
+  content     String   @db.Text
+  hasSpoilers Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   likes    Like[]
   comments Comment[]
+  reports  ReviewReport[]
 
   @@unique([userId, movieId])
   @@index([movieId])
   @@index([userId])
   @@index([createdAt])
+}
+
+model ReviewReport {
+  id        String   @id @default(uuid())
+  reviewId  String
+  userId    String
+  reason    String   // spam, offensive, spoilers, other
+  details   String?  @db.Text
+  status    String   @default("pending") // pending, reviewed, dismissed
+  createdAt DateTime @default(now())
+
+  review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, reviewId])
+  @@index([reviewId])
+  @@index([status])
 }
 
 model Watchlist {
