@@ -15,6 +15,7 @@ import { TmdbModule } from './modules/tmdb/tmdb.module';
 import { MoviesModule } from './modules/movies/movies.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { UsersModule } from './modules/users/users.module';
+import { WatchlistModule } from './modules/watchlist/watchlist.module';
 
 @Module({
   imports: [
@@ -34,7 +35,8 @@ import { UsersModule } from './modules/users/users.module';
     TmdbModule,
     MoviesModule,
     ReviewsModule,
-    UsersModule, 
+    UsersModule,
+    WatchlistModule, 
   ],
   controllers: [AppController],
   providers: [

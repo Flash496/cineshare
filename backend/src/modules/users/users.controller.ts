@@ -5,54 +5,90 @@ import {
   Patch,
   Param,
   Body,
+  Query,
   UseGuards,
   ValidationPipe,
+  ParseIntPipe,
+  DefaultValuePipe,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
-import { UpdateProfileDto } from './dto/update-profile.dto';
 
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  // Get current user profile (authenticated)
+  @Public()
+  @Get('search')
+  searchUsers(
+    @Query('q') query: string,
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+  ) {
+    return this.usersService.searchUsers(query, limit);
+  }
+
+  @Public()
+  @Get('top-critics')
+  getTopCritics(
+    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
+  ) {
+    return this.usersService.getTopCritics(limit);
+  }
+
   @Get('me')
   @UseGuards(JwtAuthGuard)
-  getCurrentUser(@GetUser('sub') userId: string) {
+  getMyProfile(@GetUser('sub') userId: string) {
     return this.usersService.findById(userId);
   }
 
-  // Get user by ID (public)
-  @Public()
-  @Get(':id')
-  getUserById(@Param('id') id: string) {
-    return this.usersService.findById(id);
+  @Get('me/stats')
+  @UseGuards(JwtAuthGuard)
+  async getMyStats(@GetUser('sub') userId: string) {
+    return this.usersService.getProfileStats(userId);
   }
 
-  // Get user by username (public)
-  @Public()
-  @Get('username/:username')
-  getUserByUsername(@Param('username') username: string) {
-    return this.usersService.findByUsername(username);
+  @Get('me/activity')
+  @UseGuards(JwtAuthGuard)
+  getMyActivity(
+    @GetUser('sub') userId: string,
+    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
+  ) {
+    return this.usersService.getRecentActivity(userId, limit);
   }
 
-  // Get user review stats (public)
-  @Public()
-  @Get(':id/stats')
-  getUserStats(@Param('id') id: string) {
-    return this.usersService.getUserReviewStats(id);
-  }
-
-  // Update current user profile (authenticated)
   @Patch('me')
   @UseGuards(JwtAuthGuard)
-  updateProfile(
+  updateMyProfile(
     @GetUser('sub') userId: string,
     @Body(ValidationPipe) updateProfileDto: UpdateProfileDto,
   ) {
     return this.usersService.updateProfile(userId, updateProfileDto);
+  }
+
+  @Public()
+  @Get(':username')
+  async getUserProfile(@Param('username') username: string) {
+    const user = await this.usersService.findByUsername(username);
+    return user;
+  }
+
+  @Public()
+  @Get(':username/stats')
+  async getUserStats(@Param('username') username: string) {
+    const user = await this.usersService.findByUsername(username);
+    return this.usersService.getProfileStats(user.id);
+  }
+
+  @Public()
+  @Get(':username/activity')
+  async getUserActivity(
+    @Param('username') username: string,
+    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
+  ) {
+    const user = await this.usersService.findByUsername(username);
+    return this.usersService.getRecentActivity(user.id, limit);
   }
 }

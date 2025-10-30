@@ -1,3 +1,4 @@
+// prisma/schema.prisma
 generator client {
   provider = "prisma-client-js"
 }
@@ -8,19 +9,22 @@ datasource db {
 }
 
 model User {
-  id           String    @id @default(uuid())
-  email        String    @unique
-  username     String    @unique
-  password     String?   // Null for OAuth users
-  displayName  String?
-  bio          String?
-  avatar       String?
-  provider     String    @default("email") // email, google, facebook
-  providerId   String?   // Google user ID
-  isVerified   Boolean   @default(false)
-  refreshToken String?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id            String    @id @default(uuid())
+  email         String    @unique
+  username      String    @unique
+  password      String?   // Null for OAuth users
+  displayName   String?
+  bio           String?   @db.Text
+  avatar        String?
+  location      String?
+  website       String?
+  favoriteGenre String?
+  provider      String    @default("email") // email, google, facebook
+  providerId    String?   // Google user ID
+  isVerified    Boolean   @default(false)
+  refreshToken  String?   @db.Text
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   // Relations
   reviews       Review[]
@@ -87,6 +91,7 @@ model Watchlist {
   movies WatchlistMovie[]
 
   @@index([userId])
+  @@index([isPublic])
 }
 
 model WatchlistMovie {
@@ -94,11 +99,14 @@ model WatchlistMovie {
   watchlistId String
   movieId     Int
   order       Int      @default(0)
+  notes       String?  @db.Text
+  watched     Boolean  @default(false)
   addedAt     DateTime @default(now())
 
   watchlist Watchlist @relation(fields: [watchlistId], references: [id], onDelete: Cascade)
 
   @@unique([watchlistId, movieId])
+  @@index([watchlistId])
   @@index([movieId])
 }
 
@@ -126,6 +134,8 @@ model Like {
   review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
 
   @@unique([userId, reviewId])
+  @@index([userId])
+  @@index([reviewId])
 }
 
 model Comment {
@@ -144,4 +154,5 @@ model Comment {
 
   @@index([reviewId])
   @@index([userId])
+  @@index([parentId])
 }
