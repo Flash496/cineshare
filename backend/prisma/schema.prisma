@@ -8,29 +8,32 @@ datasource db {
 }
 
 model User {
-  id            String         @id @default(uuid())
-  email         String         @unique
-  username      String         @unique
-  password      String?
-  displayName   String?
-  bio           String?
-  avatar        String?
-  provider      String         @default("email")
-  providerId    String?
-  isVerified    Boolean        @default(false)
-  refreshToken  String?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  favoriteGenre String?
-  location      String?
-  website       String?
-  comments      Comment[]
-  followers     Follow[]       @relation("Following")
-  following     Follow[]       @relation("Followers")
-  likes         Like[]
-  reviews       Review[]
-  reviewReports ReviewReport[]
-  watchlists    Watchlist[]
+  id                      String         @id @default(uuid())
+  email                   String         @unique
+  username                String         @unique
+  password                String?
+  displayName             String?
+  bio                     String?
+  avatar                  String?
+  provider                String         @default("email")
+  providerId              String?
+  isVerified              Boolean        @default(false)
+  refreshToken            String?
+  createdAt               DateTime       @default(now())
+  updatedAt               DateTime       @updatedAt
+  favoriteGenre           String?
+  location                String?
+  website                 String?
+  comments                Comment[]
+  followers               Follow[]       @relation("Following")
+  following               Follow[]       @relation("Followers")
+  likes                   Like[]
+  reviews                 Review[]
+  reviewReports           ReviewReport[]
+  watchlists              Watchlist[]
+  notificationsReceived   Notification[] @relation("NotificationReceiver")
+  notificationsTriggered  Notification[] @relation("NotificationActor")
+  messagesSent            Message[]      @relation("MessagesSent")
 
   @@index([email])
   @@index([username])
@@ -54,7 +57,8 @@ model Review {
   @@unique([userId, movieId])
   @@index([movieId])
   @@index([userId])
-  @@index([createdAt])
+  @@index([createdAt(sort: Desc)])
+  @@index([userId, createdAt])
 }
 
 model ReviewReport {
@@ -114,6 +118,7 @@ model Follow {
   @@unique([followerId, followingId])
   @@index([followerId])
   @@index([followingId])
+  @@index([followingId, createdAt])
 }
 
 model Like {
@@ -145,4 +150,52 @@ model Comment {
   @@index([reviewId])
   @@index([userId])
   @@index([parentId])
+}
+
+model Notification {
+  id          String   @id @default(uuid())
+  userId      String
+  type        String   // like, comment, follow, mention
+  actorId     String
+  referenceId String?  // ID of the liked review, comment, etc.
+  message     String
+  link        String
+  read        Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  user        User     @relation("NotificationReceiver", fields: [userId], references: [id], onDelete: Cascade)
+  actor       User     @relation("NotificationActor", fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([actorId])
+  @@index([createdAt])
+  @@index([read])
+  @@index([userId, read])
+}
+
+model Conversation {
+  id            String    @id @default(uuid())
+  participants  String[]  // Array of user IDs
+  lastMessage   String?
+  lastMessageAt DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  messages      Message[]
+
+  @@index([participants])
+  @@index([lastMessageAt])
+}
+
+model Message {
+  id             String       @id @default(uuid())
+  conversationId String
+  senderId       String
+  content        String       @db.Text
+  read           Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         User         @relation("MessagesSent", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@index([senderId])
+  @@index([createdAt])
 }

@@ -5,11 +5,13 @@ import { ReviewsController } from './reviews.controller';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { ReviewOwnerGuard } from './guards/review-owner.guard';
 import { ReviewAnalyticsModule } from './analytics/analytics.module'; // ✅ Add this
+import { FeedModule } from '../feed/feed.module';
 
 @Module({
   imports: [
     PrismaModule,
-    ReviewAnalyticsModule, // ✅ Add this
+    ReviewAnalyticsModule,
+    FeedModule, // ✅ Add this
   ],
   controllers: [ReviewsController],
   providers: [ReviewsService, ReviewOwnerGuard],
