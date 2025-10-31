@@ -16,6 +16,7 @@ import { MoviesModule } from './modules/movies/movies.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { UsersModule } from './modules/users/users.module';
 import { WatchlistModule } from './modules/watchlist/watchlist.module';
+import { CommentsModule } from './modules/comments/comments.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { WatchlistModule } from './modules/watchlist/watchlist.module';
     ReviewsModule,
     UsersModule,
     WatchlistModule, 
+    CommentsModule,
   ],
   controllers: [AppController],
   providers: [

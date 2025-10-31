@@ -4,12 +4,19 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class SocialService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @Inject(forwardRef(() => NotificationsService))
+    private notificationsService: NotificationsService,
+  ) {}
 
   async followUser(followerId: string, followingId: string) {
     // Prevent self-follow
@@ -55,10 +62,31 @@ export class SocialService {
             avatar: true,
           },
         },
+        follower: {
+          select: {
+            id: true,
+            username: true,
+            displayName: true,
+            avatar: true,
+          },
+        },
       },
     });
 
-    // TODO: Create notification for the followed user
+    // Send notification to the followed user
+    try {
+      await this.notificationsService.createNotification({
+        userId: followingId,
+        type: 'follow',
+        actorId: followerId,
+        referenceId: follow.id,
+        message: `started following you`,
+        link: `/profile/${follow.follower.username}`,
+      });
+    } catch (error) {
+      console.error('Failed to send follow notification:', error);
+      // Don't fail the follow action if notification fails
+    }
 
     return {
       message: 'Successfully followed user',
@@ -218,5 +246,17 @@ export class SocialService {
     `;
 
     return suggested;
+  }
+
+  async getFollowStats(userId: string) {
+    const [followersCount, followingCount] = await Promise.all([
+      this.prisma.follow.count({ where: { followingId: userId } }),
+      this.prisma.follow.count({ where: { followerId: userId } }),
+    ]);
+
+    return {
+      followersCount,
+      followingCount,
+    };
   }
 }

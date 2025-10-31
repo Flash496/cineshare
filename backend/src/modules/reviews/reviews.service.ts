@@ -1,17 +1,24 @@
-// src/modules/reviews/reviews.service.ts
+// backend/src/modules/reviews/reviews.service.ts
 import { 
   Injectable, 
   NotFoundException, 
   ForbiddenException, 
-  ConflictException 
+  ConflictException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateReviewDto, UpdateReviewDto } from './dto/create-review.dto';
 import { QueryReviewsDto, ReviewSortBy } from './dto/query-reviews.dto';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class ReviewsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @Inject(forwardRef(() => NotificationsService))
+    private notificationsService: NotificationsService,
+  ) {}
 
   async create(userId: string, dto: CreateReviewDto) {
     // Check if user already reviewed this movie
@@ -28,7 +35,7 @@ export class ReviewsService {
       throw new ConflictException('You have already reviewed this movie');
     }
 
-    return this.prisma.review.create({
+    const review = await this.prisma.review.create({
       data: {
         userId,
         movieId: dto.movieId,
@@ -54,6 +61,35 @@ export class ReviewsService {
         },
       },
     });
+
+    // Notify followers about the new review
+    try {
+      const followers = await this.prisma.follow.findMany({
+        where: { followingId: userId },
+        select: { followerId: true },
+      });
+
+      const displayName = review.user.displayName || review.user.username;
+      const movieTitle = dto.title || `Movie #${dto.movieId}`; // Fallback if no title
+
+      await Promise.all(
+        followers.map((follower) =>
+          this.notificationsService.createNotification({
+            userId: follower.followerId,
+            type: 'review' as any,
+            actorId: userId,
+            referenceId: review.id,
+            message: `reviewed ${movieTitle}`,
+            link: `/reviews/${review.id}`,
+          })
+        )
+      );
+    } catch (error) {
+      console.error('Failed to send review notifications:', error);
+      // Don't fail the review creation if notifications fail
+    }
+
+    return review;
   }
 
   async findByMovie(movieId: number, page: number = 1, limit: number = 10) {

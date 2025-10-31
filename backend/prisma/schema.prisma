@@ -24,7 +24,8 @@ model User {
   favoriteGenre           String?
   location                String?
   website                 String?
-  comments                Comment[]
+  comments                Comment[]      @relation("UserComments")
+  commentLikes            CommentLike[]  @relation("CommentLikes")
   followers               Follow[]       @relation("Following")
   following               Follow[]       @relation("Followers")
   likes                   Like[]
@@ -135,21 +136,38 @@ model Like {
 }
 
 model Comment {
-  id        String    @id @default(uuid())
-  userId    String
-  reviewId  String
-  content   String
-  parentId  String?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  parent    Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
-  replies   Comment[] @relation("CommentReplies")
-  review    Review    @relation(fields: [reviewId], references: [id], onDelete: Cascade)
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id              String        @id @default(uuid())
+  userId          String
+  reviewId        String
+  content         String        @db.Text
+  mentions        String[]
+  parentId        String?
+  isEdited        Boolean       @default(false)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  user            User          @relation("UserComments", fields: [userId], references: [id], onDelete: Cascade)
+  review          Review        @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  parent          Comment?      @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies         Comment[]     @relation("CommentReplies")
+  likes           CommentLike[]
 
   @@index([reviewId])
   @@index([userId])
   @@index([parentId])
+  @@index([createdAt])
+}
+
+model CommentLike {
+  id        String   @id @default(uuid())
+  userId    String
+  commentId String
+  createdAt DateTime @default(now())
+  user      User     @relation("CommentLikes", fields: [userId], references: [id], onDelete: Cascade)
+  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, commentId])
+  @@index([commentId])
+  @@index([userId])
 }
 
 model Notification {
