@@ -8,6 +8,7 @@ import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { GoogleStrategy } from './strategies/google.strategy';
 import { RefreshTokenStrategy } from './strategies/refresh-token.strategy';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @Module({
   imports: [
@@ -15,8 +16,8 @@ import { RefreshTokenStrategy } from './strategies/refresh-token.strategy';
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_SECRET'),
-        signOptions: { expiresIn: '15m' },
+        secret: configService.get<string>('JWT_SECRET') || process.env.JWT_SECRET || 'your-secret-key',
+        signOptions: { expiresIn: '15m' }, // Access token: 15 minutes
       }),
       inject: [ConfigService],
     }),
@@ -25,9 +26,10 @@ import { RefreshTokenStrategy } from './strategies/refresh-token.strategy';
   providers: [
     AuthService,
     JwtStrategy,
+    JwtAuthGuard,
     GoogleStrategy,
     RefreshTokenStrategy,
   ],
-  exports: [AuthService, JwtModule], // Export JwtModule for WebSocket guard
+  exports: [JwtModule, JwtAuthGuard, JwtStrategy, AuthService],
 })
 export class AuthModule {}

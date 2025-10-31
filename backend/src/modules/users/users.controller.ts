@@ -10,6 +10,7 @@ import {
   ValidationPipe,
   ParseIntPipe,
   DefaultValuePipe,
+  Request,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
@@ -40,37 +41,73 @@ export class UsersController {
 
   @Get('me')
   @UseGuards(JwtAuthGuard)
-  getMyProfile(@GetUser('sub') userId: string) {
-    return this.usersService.findById(userId);
+  async getMyProfile(@Request() req) {
+    console.log('📌 getCurrentUser - req.user:', req.user);
+    console.log('📌 User ID:', req.user?.id);
+
+    if (!req.user || !req.user.id) {
+      console.log('❌ No user ID found in token');
+      throw new Error('User not authenticated');
+    }
+
+    // ✅ Now this will work because req.user.id is defined!
+    const user = await this.usersService.findById(req.user.id);
+
+    if (!user) {
+      console.log('❌ User not found in database');
+      throw new Error('User not found');
+    }
+
+    console.log('✅ User found:', user.username);
+    return user;
   }
 
   @Get('me/stats')
   @UseGuards(JwtAuthGuard)
-  async getMyStats(@GetUser('sub') userId: string) {
-    return this.usersService.getProfileStats(userId);
+  async getMyStats(@Request() req) {
+    console.log('📌 getMyStats - User ID:', req.user?.id);
+
+    if (!req.user || !req.user.id) {
+      throw new Error('User not authenticated');
+    }
+
+    return this.usersService.getProfileStats(req.user.id);
   }
 
   @Get('me/activity')
   @UseGuards(JwtAuthGuard)
-  getMyActivity(
-    @GetUser('sub') userId: string,
+  async getMyActivity(
+    @Request() req,
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
   ) {
-    return this.usersService.getRecentActivity(userId, limit);
+    console.log('📌 getMyActivity - User ID:', req.user?.id);
+
+    if (!req.user || !req.user.id) {
+      throw new Error('User not authenticated');
+    }
+
+    return this.usersService.getRecentActivity(req.user.id, limit);
   }
 
   @Patch('me')
   @UseGuards(JwtAuthGuard)
-  updateMyProfile(
-    @GetUser('sub') userId: string,
+  async updateMyProfile(
+    @Request() req,
     @Body(ValidationPipe) updateProfileDto: UpdateProfileDto,
   ) {
-    return this.usersService.updateProfile(userId, updateProfileDto);
+    console.log('📌 updateMyProfile - User ID:', req.user?.id);
+
+    if (!req.user || !req.user.id) {
+      throw new Error('User not authenticated');
+    }
+
+    return this.usersService.updateProfile(req.user.id, updateProfileDto);
   }
 
   @Public()
   @Get(':username')
   async getUserProfile(@Param('username') username: string) {
+    console.log('📌 getUserProfile - username:', username);
     const user = await this.usersService.findByUsername(username);
     return user;
   }
@@ -78,6 +115,7 @@ export class UsersController {
   @Public()
   @Get(':username/stats')
   async getUserStats(@Param('username') username: string) {
+    console.log('📌 getUserStats - username:', username);
     const user = await this.usersService.findByUsername(username);
     return this.usersService.getProfileStats(user.id);
   }
@@ -88,6 +126,7 @@ export class UsersController {
     @Param('username') username: string,
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
   ) {
+    console.log('📌 getUserActivity - username:', username);
     const user = await this.usersService.findByUsername(username);
     return this.usersService.getRecentActivity(user.id, limit);
   }

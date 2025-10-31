@@ -8,74 +8,105 @@ export class UsersService {
   constructor(private prisma: PrismaService) {}
 
   async findById(userId: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        email: true,
-        username: true,
-        displayName: true,
-        bio: true,
-        avatar: true,
-        location: true,
-        website: true,
-        favoriteGenre: true,
-        createdAt: true,
-        updatedAt: true,
-        isVerified: true,
-        _count: {
-          select: {
-            reviews: true,
-            followers: true,
-            following: true,
-            watchlists: true,
-          },
-        },
-      },
-    });
+    console.log('🔍 Finding user by ID:', userId);
 
-    if (!user) {
-      throw new NotFoundException('User not found');
+    // ✅ Validate userId before querying
+    if (!userId || userId === 'undefined') {
+      console.log('❌ Invalid user ID:', userId);
+      throw new Error('Invalid user ID');
     }
 
-    return user;
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          email: true,
+          username: true,
+          displayName: true,
+          bio: true,
+          avatar: true,
+          location: true,
+          website: true,
+          favoriteGenre: true,
+          createdAt: true,
+          updatedAt: true,
+          isVerified: true,
+          _count: {
+            select: {
+              reviews: true,
+              followers: true,
+              following: true,
+              watchlists: true,
+            },
+          },
+        },
+      });
+
+      if (!user) {
+        console.log('⚠️ User not found in database');
+        throw new NotFoundException('User not found');
+      }
+
+      console.log('✅ User found:', user.username);
+      return user;
+    } catch (error) {
+      console.error('❌ Error finding user:', error);
+      throw error;
+    }
   }
 
   async findByUsername(username: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { username },
-      select: {
-        id: true,
-        email: true,
-        username: true,
-        displayName: true,
-        bio: true,
-        avatar: true,
-        location: true,
-        website: true,
-        favoriteGenre: true,
-        createdAt: true,
-        updatedAt: true,
-        isVerified: true,
-        _count: {
-          select: {
-            reviews: true,
-            followers: true,
-            following: true,
-            watchlists: true,
-          },
-        },
-      },
-    });
+    console.log('🔍 Finding user by username:', username);
 
-    if (!user) {
-      throw new NotFoundException('User not found');
+    if (!username) {
+      console.log('❌ Invalid username');
+      throw new Error('Invalid username');
     }
 
-    return user;
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { username },
+        select: {
+          id: true,
+          email: true,
+          username: true,
+          displayName: true,
+          bio: true,
+          avatar: true,
+          location: true,
+          website: true,
+          favoriteGenre: true,
+          createdAt: true,
+          updatedAt: true,
+          isVerified: true,
+          _count: {
+            select: {
+              reviews: true,
+              followers: true,
+              following: true,
+              watchlists: true,
+            },
+          },
+        },
+      });
+
+      if (!user) {
+        console.log('⚠️ User not found');
+        throw new NotFoundException('User not found');
+      }
+
+      console.log('✅ User found:', user.username);
+      return user;
+    } catch (error) {
+      console.error('❌ Error finding user:', error);
+      throw error;
+    }
   }
 
   async updateProfile(userId: string, dto: UpdateProfileDto) {
+    console.log('📝 Updating profile for user:', userId);
+
     // Check if display name is already taken (if being updated)
     if (dto.displayName) {
       const existingUser = await this.prisma.user.findFirst({
@@ -86,6 +117,7 @@ export class UsersService {
       });
 
       if (existingUser) {
+        console.log('❌ Display name already taken:', dto.displayName);
         throw new ConflictException('Display name already taken');
       }
     }
@@ -106,10 +138,13 @@ export class UsersService {
       },
     });
 
+    console.log('✅ Profile updated for:', updatedUser.username);
     return updatedUser;
   }
 
   async getProfileStats(userId: string): Promise<ProfileStatsDto> {
+    console.log('📊 Getting profile stats for user:', userId);
+
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: {
@@ -124,6 +159,7 @@ export class UsersService {
     });
 
     if (!user) {
+      console.log('❌ User not found for stats');
       throw new NotFoundException('User not found');
     }
 
@@ -148,6 +184,7 @@ export class UsersService {
       where: { userId },
     });
 
+    console.log('✅ Profile stats calculated');
     return {
       moviesWatched: moviesWatched.length,
       reviewsWritten: user._count.reviews,
@@ -160,6 +197,8 @@ export class UsersService {
   }
 
   async getUserReviewStats(userId: string) {
+    console.log('📊 Getting review stats for user:', userId);
+
     const [stats, topReview] = await Promise.all([
       this.prisma.review.aggregate({
         where: { userId },
@@ -214,6 +253,7 @@ export class UsersService {
       orderBy: { rating: 'desc' },
     });
 
+    console.log('✅ Review stats calculated');
     return {
       totalReviews: stats._count.id,
       averageRating: Number((stats._avg.rating || 0).toFixed(2)),
@@ -228,6 +268,8 @@ export class UsersService {
   }
 
   async getRecentActivity(userId: string, limit: number = 10) {
+    console.log('📝 Getting recent activity for user:', userId);
+
     const reviews = await this.prisma.review.findMany({
       where: { userId },
       take: limit,
@@ -242,10 +284,13 @@ export class UsersService {
       },
     });
 
+    console.log('✅ Recent activity retrieved:', reviews.length, 'reviews');
     return reviews;
   }
 
   async searchUsers(query: string, limit: number = 20) {
+    console.log('🔎 Searching users with query:', query);
+
     const users = await this.prisma.user.findMany({
       where: {
         OR: [
@@ -270,10 +315,13 @@ export class UsersService {
       },
     });
 
+    console.log('✅ Search found', users.length, 'users');
     return users;
   }
 
   async getTopCritics(limit: number = 10) {
+    console.log('⭐ Getting top critics');
+
     // Get users with most reviews
     const topCritics = await this.prisma.user.findMany({
       take: limit * 2, // Get more than needed to filter after calculating likes
@@ -317,8 +365,11 @@ export class UsersService {
     );
 
     // Sort by total likes and return top N
-    return criticsWithLikes
+    const result = criticsWithLikes
       .sort((a, b) => b.totalLikes - a.totalLikes)
       .slice(0, limit);
+
+    console.log('✅ Top critics retrieved:', result.length);
+    return result;
   }
 }
