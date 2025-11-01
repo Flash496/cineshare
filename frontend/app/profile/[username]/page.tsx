@@ -10,8 +10,9 @@ import { FollowButton } from '@/components/social/follow-button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 
+// Update: params is now a Promise that resolves to the expected object 
 interface Props {
-  params: { username: string };
+  params: Promise<{ username: string }>;
 }
 
 async function getUserProfile(username: string) {
@@ -40,8 +41,10 @@ async function getUserStats(username: string) {
   }
 }
 
+// Update: destructure username after awaiting params
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const user = await getUserProfile(params.username);
+  const { username } = await params;
+  const user = await getUserProfile(username);
 
   if (!user) {
     return { title: 'User Not Found | CineShare' };
@@ -53,10 +56,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
+// Update: destructure username after awaiting params
 export default async function ProfilePage({ params }: Props) {
+  const { username } = await params;
   const [user, stats] = await Promise.all([
-    getUserProfile(params.username),
-    getUserStats(params.username),
+    getUserProfile(username),
+    getUserStats(username),
   ]);
 
   if (!user) {
@@ -114,15 +119,15 @@ export default async function ProfilePage({ params }: Props) {
               </TabsList>
 
               <TabsContent value="reviews" className="mt-6">
-                <ProfileActivity username={params.username} type="reviews" />
+                <ProfileActivity username={username} type="reviews" />
               </TabsContent>
 
               <TabsContent value="watchlists" className="mt-6">
-                <ProfileActivity username={params.username} type="watchlists" />
+                <ProfileActivity username={username} type="watchlists" />
               </TabsContent>
 
               <TabsContent value="activity" className="mt-6">
-                <ProfileActivity username={params.username} type="activity" />
+                <ProfileActivity username={username} type="activity" />
               </TabsContent>
             </Tabs>
           </div>

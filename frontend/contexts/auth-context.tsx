@@ -1,8 +1,8 @@
-// frontend/contexts/auth-context.tsx
 'use client';
 
 import { createContext, useContext, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { jwtDecode } from 'jwt-decode'; // npm install jwt-decode
 
 interface User {
   id: string;
@@ -26,6 +26,39 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// --- Helper to check token expiration ---
+function isTokenExpired(token: string | null): boolean {
+  if (!token) return true;
+  try {
+    const { exp } = jwtDecode<{ exp: number }>(token);
+    return Date.now() >= exp * 1000 - 5000; // Expired if within 5s window
+  } catch {
+    return true;
+  }
+}
+
+// --- Helper to get a valid (refreshed if needed) access token ---
+const getValidAccessToken = async () => {
+  let accessToken = localStorage.getItem('accessToken');
+  let refreshToken = localStorage.getItem('refreshToken');
+
+  if (!accessToken || isTokenExpired(accessToken)) {
+    // Try to refresh via your API route
+    if (!refreshToken) throw new Error('No refresh token');
+    const res = await fetch('/api/auth/refresh', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken }),
+    });
+    if (!res.ok) throw new Error('Session expired. Please log in.');
+    const { accessToken: newAccess, refreshToken: newRefresh } = await res.json();
+    localStorage.setItem('accessToken', newAccess);
+    localStorage.setItem('refreshToken', newRefresh);
+    accessToken = newAccess;
+  }
+  return accessToken;
+};
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
@@ -34,185 +67,103 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  // Check auth on mount
+  // --- Silent refresh effect ---
   useEffect(() => {
-    console.log('🔵 Auth context mounted - checking auth...');
-    checkAuth();
-  }, []);
+    async function silentRefresh() {
+      try {
+        const validToken = await getValidAccessToken();
+        setAccessToken(validToken);
+        setRefreshToken(localStorage.getItem('refreshToken'));
+      } catch (err) {
+        logout();
+      }
+    }
+    const interval = setInterval(silentRefresh, 13 * 60 * 1000); // every 13 min
+    return () => clearInterval(interval);
+  }, [refreshToken]);
 
-  // Re-check auth when app regains focus
+  // --- Auth check on mount and focus ---
+  useEffect(() => { checkAuth(); }, []);
   useEffect(() => {
-    const handleFocus = () => {
-      console.log('🟢 Window focused - refreshing auth...');
-      checkAuth();
-    };
+    const handleFocus = () => checkAuth();
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
   }, []);
 
-  // Refresh token before it expires
-  useEffect(() => {
-    if (!refreshToken) return;
-
-    const interval = setInterval(async () => {
-      try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/refresh`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ refreshToken }),
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          setAccessToken(data.accessToken);
-          setRefreshToken(data.refreshToken);
-          localStorage.setItem('accessToken', data.accessToken);
-          localStorage.setItem('refreshToken', data.refreshToken);
-          console.log('🟢 Token refreshed successfully');
-        } else {
-          console.log('🔴 Token refresh failed');
-          logout();
-        }
-      } catch (err) {
-        console.error('🔴 Token refresh failed:', err);
-        logout();
-      }
-    }, 13 * 60 * 1000);
-
-    return () => clearInterval(interval);
-  }, [refreshToken]);
-
+  // --- Main Auth Logic ---
   const checkAuth = async () => {
+    setIsLoading(true);
     try {
-      setIsLoading(true);
-      const token = localStorage.getItem('accessToken');
-      console.log('🟡 Checking auth - Token exists:', !!token);
-
-      if (!token) {
-        console.log('🔴 No token found');
-        setUser(null);
-        setAccessToken(null);
-        setRefreshToken(null);
-        setIsLoading(false);
-        return;
-      }
-
-      console.log('🟡 Fetching user data with token...');
+      const token = await getValidAccessToken();
+      if (!token) throw new Error('No valid token');
       const response = await fetch('/api/users/me', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
-
       if (response.ok) {
         const userData = await response.json();
-        console.log('🟢 User loaded successfully:', userData.username);
         setUser(userData);
         setAccessToken(token);
         setRefreshToken(localStorage.getItem('refreshToken'));
         setError(null);
       } else {
-        console.log('🔴 Token invalid - clearing');
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-        setUser(null);
-        setAccessToken(null);
-        setRefreshToken(null);
+        throw new Error('Token invalid or expired');
       }
     } catch (err) {
-      console.error('🔴 Auth check error:', err);
       setUser(null);
       setAccessToken(null);
       setRefreshToken(null);
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
     } finally {
       setIsLoading(false);
     }
   };
 
   const register = async (email: string, username: string, password: string) => {
+    setError(null);
     try {
-      setError(null);
-      console.log('🟡 Registering user...');
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, username, password }),
       });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.message || 'Registration failed');
-      }
-
+      if (!response.ok) throw new Error((await response.json()).message || 'Registration failed');
       const { accessToken, refreshToken, user: userData } = await response.json();
-      console.log('🟢 Registration successful');
-
       setUser(userData);
       setAccessToken(accessToken);
       setRefreshToken(refreshToken);
-
       localStorage.setItem('accessToken', accessToken);
       localStorage.setItem('refreshToken', refreshToken);
-
-      // Don't redirect immediately - let navbar re-render first
       setTimeout(() => router.push('/feed'), 100);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Registration failed';
-      setError(message);
-      console.error('🔴 Registration error:', message);
+    } catch (err: any) {
+      setError(err.message || 'Registration failed');
       throw err;
     }
   };
 
   const login = async (email: string, password: string) => {
+    setError(null);
     try {
-      setError(null);
-      console.log('🟡 Logging in user...');
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.message || 'Login failed');
-      }
-
+      if (!response.ok) throw new Error((await response.json()).message || 'Login failed');
       const { accessToken, refreshToken, user: userData } = await response.json();
-      console.log('🟢 Login successful:', userData.username);
-
       setUser(userData);
       setAccessToken(accessToken);
       setRefreshToken(refreshToken);
-
       localStorage.setItem('accessToken', accessToken);
       localStorage.setItem('refreshToken', refreshToken);
-
-      // Don't redirect immediately - let navbar re-render first
       setTimeout(() => router.push('/feed'), 100);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Login failed';
-      setError(message);
-      console.error('🔴 Login error:', message);
+    } catch (err: any) {
+      setError(err.message || 'Login failed');
       throw err;
     }
   };
 
-  const logout = async () => {
-    console.log('🟡 Logging out...');
-    if (accessToken) {
-      try {
-        await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/logout`, {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${accessToken}` },
-        });
-      } catch (err) {
-        console.error('🔴 Logout API call failed:', err);
-      }
-    }
-
+  const logout = () => {
     setUser(null);
     setAccessToken(null);
     setRefreshToken(null);
@@ -221,10 +172,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.push('/');
   };
 
-  const refreshUser = async () => {
-    console.log('🟡 Refreshing user...');
-    await checkAuth();
-  };
+  const refreshUser = async () => await checkAuth();
 
   return (
     <AuthContext.Provider
@@ -247,8 +195,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 }

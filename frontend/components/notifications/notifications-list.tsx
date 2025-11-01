@@ -182,6 +182,10 @@ export function NotificationsList() {
     );
   }
 
+  if (!loading && notifications.length === 0) {
+    return <div className="p-6 text-muted-foreground text-center">No notifications yet.</div>;
+  }
+
   const unreadCount = notifications.filter((n) => !n.read).length;
   const readCount = notifications.filter((n) => n.read).length;
 
@@ -223,22 +227,16 @@ export function NotificationsList() {
       )}
 
       {/* Notifications List */}
-      {notifications.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">No notifications yet</p>
-        </div>
-      ) : (
-        <div className="border rounded-lg overflow-hidden">
-          {notifications.map((notification) => (
-            <NotificationItem
-              key={notification.id}
-              notification={notification}
-              onMarkAsRead={handleMarkAsRead}
-              onClose={() => {}}
-            />
-          ))}
-        </div>
-      )}
+      <div className="border rounded-lg overflow-hidden">
+        {notifications.map((notification) => (
+          <NotificationItem
+            key={notification.id}
+            notification={notification}
+            onMarkAsRead={handleMarkAsRead}
+            onClose={() => {}}
+          />
+        ))}
+      </div>
 
       {/* Load More Button */}
       {hasMore && (

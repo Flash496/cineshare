@@ -1,11 +1,11 @@
-// frontend/app/api/users/[username]/route.ts
+// frontend/app/api/watchlists/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 interface RouteParams {
   params: Promise<{
-    username: string;
+    id: string;
   }>;
 }
 
@@ -14,9 +14,9 @@ export async function GET(
   { params }: RouteParams
 ) {
   try {
-    const { username } = await params;
+    const { id } = await params;
 
-    const response = await fetch(`${API_URL}/users/${username}`, {
+    const response = await fetch(`${BACKEND_URL}/watchlists/${id}`, {
       cache: 'no-store',
     });
 
@@ -28,7 +28,7 @@ export async function GET(
 
     return NextResponse.json(data);
   } catch (error) {
-    console.error('Error fetching user:', error);
+    console.error('Error fetching watchlist:', error);
     return NextResponse.json(
       { message: 'Internal server error' },
       { status: 500 }
@@ -41,7 +41,7 @@ export async function PATCH(
   { params }: RouteParams
 ) {
   try {
-    const { username } = await params;
+    const { id } = await params;
     const authHeader = request.headers.get('authorization');
 
     if (!authHeader) {
@@ -53,7 +53,7 @@ export async function PATCH(
 
     const body = await request.json();
 
-    const response = await fetch(`${API_URL}/users/${username}`, {
+    const response = await fetch(`${BACKEND_URL}/watchlists/${id}`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
@@ -70,7 +70,44 @@ export async function PATCH(
 
     return NextResponse.json(data);
   } catch (error) {
-    console.error('Error updating user:', error);
+    console.error('Error updating watchlist:', error);
+    return NextResponse.json(
+      { message: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: RouteParams
+) {
+  try {
+    const { id } = await params;
+    const authHeader = request.headers.get('authorization');
+
+    if (!authHeader) {
+      return NextResponse.json(
+        { message: 'No authorization token provided' },
+        { status: 401 }
+      );
+    }
+
+    const response = await fetch(`${BACKEND_URL}/watchlists/${id}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: authHeader,
+      },
+    });
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      return NextResponse.json(data, { status: response.status });
+    }
+
+    return new NextResponse(null, { status: 204 });
+  } catch (error) {
+    console.error('Error deleting watchlist:', error);
     return NextResponse.json(
       { message: 'Internal server error' },
       { status: 500 }
